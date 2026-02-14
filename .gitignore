@@ -1,4 +1,5 @@
 /codes.xlsx
+/codes2.xlsx
 /TBOX-SMS-Segundo.xls
 /TBOX-SMS-Tercero.xls
 /tbox.code-workspace
@@ -7,3 +8,4 @@ __pycache__/
 hitter_dashboard.csv
 evanalytics_raw.csv
 fangraphs_auction_export.csv
+.venv/
