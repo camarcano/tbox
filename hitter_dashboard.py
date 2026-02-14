@@ -4,7 +4,6 @@ Hitter Dashboard Builder
 
 Aggregates MLB hitter data from multiple sources into a single CSV:
   - Baseball Savant: xBA, barrel rate, hard hit rate, avg bat speed, exit velo buckets
-  - FanGraphs (via pybaseball): K%, date-range stats (PA, HR, K%)
   - FanGraphs CSV: BatX auction values (manual export from auction calculator)
   - EVAnalytics: Derek Carty's context-neutral wOBA ranking
 
@@ -28,12 +27,10 @@ import os
 import time
 from io import StringIO
 
+import unicodedata
+
 import pandas as pd
 import requests
-from pybaseball import batting_stats, playerid_reverse_lookup
-import pybaseball
-
-pybaseball.cache.enable()
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -88,21 +85,9 @@ def normalize_name(name: str) -> str:
     if "," in name:
         parts = [p.strip() for p in name.split(",", 1)]
         name = f"{parts[1]} {parts[0]}"
-    import unicodedata
     name = unicodedata.normalize("NFD", name.lower())
     name = "".join(c for c in name if unicodedata.category(c) != "Mn")
     return name.replace(".", "").replace("'", "").replace("-", " ").strip()
-
-
-def _build_id_map(fangraphs_ids):
-    """Map FanGraphs player IDs to MLBAM IDs via the Chadwick register."""
-    print("  Building FanGraphs -> MLBAM ID map...")
-    try:
-        reg = playerid_reverse_lookup(list(fangraphs_ids), key_type="fangraphs")
-        return dict(zip(reg["key_fangraphs"], reg["key_mlbam"]))
-    except Exception as e:
-        print(f"  Warning: ID lookup failed: {e}")
-        return {}
 
 
 # =========================================================================
@@ -342,30 +327,23 @@ def fetch_savant_date_range_stats(season, start_date, end_date):
 
 
 # =========================================================================
-# FANGRAPHS (via pybaseball — Cloudflare blocks direct API requests)
+# BASEBALL SAVANT - K% (custom leaderboard)
 # =========================================================================
 
 
-def fetch_fangraphs_season_stats(season, min_pa=50):
-    """
-    Fetch full-season K% (and other stats) from FanGraphs via pybaseball.
-    Returns DataFrame with MLBAMID, Name, K%.
-    """
-    print(f"  [FanGraphs] Season batting stats via pybaseball ({season})...")
-    df = batting_stats(season, qual=min_pa)
-
-    # Map FanGraphs IDs to MLBAM IDs
-    fg_ids = df["IDfg"].dropna().unique().tolist()
-    id_map = _build_id_map(fg_ids)
-    df["MLBAMID"] = df["IDfg"].map(id_map)
-
-    out = df[["MLBAMID", "Name", "K%"]].copy()
-    out = out.dropna(subset=["MLBAMID"])
-    out["MLBAMID"] = out["MLBAMID"].astype(int)
-    # pybaseball returns K% as a proportion (0.236); convert to pct (23.6)
-    if out["K%"].max() <= 1:
-        out["K%"] = (out["K%"] * 100).round(1)
-    print(f"    {len(out)} players with K% data.")
+def fetch_savant_krate(season, min_pa=1, log=print):
+    """K% from the Baseball Savant custom leaderboard."""
+    log("  [Savant] K% from custom leaderboard...")
+    url = (
+        f"https://baseballsavant.mlb.com/leaderboard/custom"
+        f"?year={season}&type=batter&filter=&min={min_pa}"
+        f"&selections=k_percent&chart=false&csv=true"
+    )
+    resp = fetch_url(url)
+    df = pd.read_csv(StringIO(resp.text))
+    out = df[["player_id", "last_name, first_name", "k_percent"]].copy()
+    out.columns = ["MLBAMID", "Name", "K%"]
+    log(f"    {len(out)} players with K% data.")
     return out
 
 
@@ -496,54 +474,63 @@ def fetch_evanalytics_rankings():
 
 
 def build_dashboard(season, fg_csv, min_pa, output, date_start, date_end,
-                    skip_exit_velo=False, skip_date_range=False):
-    """Fetch all data sources and merge into a single dashboard CSV."""
+                    skip_exit_velo=False, skip_date_range=False, log=print):
+    """Fetch all data sources and merge into a single dashboard DataFrame.
 
-    print(f"\n{'=' * 64}")
-    print("  HITTER DASHBOARD BUILDER")
-    print(f"  Season: {season}")
-    print(f"  Date range: {date_start} to {date_end}")
-    print(f"  Min PA filter: {min_pa}")
-    print(f"{'=' * 64}\n")
+    Parameters
+    ----------
+    log : callable
+        Logging function (default: print). Pass a Streamlit callback to
+        capture progress messages in the UI.
+
+    Returns the merged DataFrame. If *output* is not None, also saves CSV.
+    """
+
+    log(f"\n{'=' * 64}")
+    log("  HITTER DASHBOARD BUILDER")
+    log(f"  Season: {season}")
+    log(f"  Date range: {date_start} to {date_end}")
+    log(f"  Min PA filter: {min_pa}")
+    log(f"{'=' * 64}\n")
 
     # ------------------------------------------------------------------
     # 1) Season-long Savant leaderboard data
     # ------------------------------------------------------------------
-    print("[1/6] Fetching season-long Savant leaderboard data...")
+    log("[1/6] Fetching season-long Savant leaderboard data...")
     xba_df = fetch_savant_expected_stats(season, min_pa=min_pa)
     barrel_df = fetch_savant_barrel_hardhit(season)
     bat_speed_df = fetch_savant_bat_speed(season)
 
     # ------------------------------------------------------------------
-    # 2) FanGraphs stats (K% via pybaseball)
+    # 2) K% from Savant custom leaderboard
     # ------------------------------------------------------------------
-    print("\n[2/6] Fetching FanGraphs data...")
-    krate_df = fetch_fangraphs_season_stats(season, min_pa=min_pa)
+    log("\n[2/6] Fetching K% data...")
+    krate_df = fetch_savant_krate(season, min_pa=min_pa, log=log)
 
     # ------------------------------------------------------------------
     # 3) Exit velocity buckets
     # ------------------------------------------------------------------
     if skip_exit_velo:
-        print("\n[3/6] Skipping exit-velocity buckets (--skip-exit-velo).")
+        log("\n[3/6] Skipping exit-velocity buckets (--skip-exit-velo).")
         ev_df = pd.DataFrame(
             columns=["MLBAMID", "EV_105_110", "EV_110_115", "EV_115+"]
         )
     else:
-        print("\n[3/6] Fetching exit-velocity buckets from Statcast search...")
+        log("\n[3/6] Fetching exit-velocity buckets from Statcast search...")
         ev_df = fetch_exit_velo_buckets(season)
 
     # ------------------------------------------------------------------
     # 4) Date-range stats (all from Statcast search)
     # ------------------------------------------------------------------
     if skip_date_range:
-        print(f"\n[4/6] Skipping date-range stats (--skip-date-range).")
+        log("\n[4/6] Skipping date-range stats (--skip-date-range).")
         dr_df = pd.DataFrame(columns=[
             "MLBAMID", "DR_PA", "DR_HR", "DR_K%",
             "DR_xBA", "DR_Barrel%", "DR_HardHit%",
         ])
     else:
-        print(f"\n[4/6] Fetching date-range stats ({date_start} to "
-              f"{date_end})...")
+        log(f"\n[4/6] Fetching date-range stats ({date_start} to "
+            f"{date_end})...")
         dr_df = fetch_savant_date_range_stats(
             season, date_start, date_end
         )
@@ -551,18 +538,18 @@ def build_dashboard(season, fg_csv, min_pa, output, date_start, date_end,
     # ------------------------------------------------------------------
     # 5) FanGraphs auction CSV + EVAnalytics
     # ------------------------------------------------------------------
-    print("\n[5/6] Loading supplemental data...")
+    log("\n[5/6] Loading supplemental data...")
     auction_df = load_fangraphs_auction_csv(fg_csv) if fg_csv else None
     if auction_df is None and not fg_csv:
-        print("  Tip: pass --fg-csv <path> for BatX auction values.")
-        print("  Export from: https://www.fangraphs.com/fantasy-tools/auction-calculator")
+        log("  Tip: pass --fg-csv <path> for BatX auction values.")
+        log("  Export from: https://www.fangraphs.com/fantasy-tools/auction-calculator")
 
     eva_df = fetch_evanalytics_rankings()
 
     # ------------------------------------------------------------------
     # 6) Merge everything
     # ------------------------------------------------------------------
-    print(f"\n[6/6] Merging all data sources...")
+    log("\n[6/6] Merging all data sources...")
 
     # Start with expected-stats (has PA, xBA, MLBAMID)
     dash = xba_df.copy()
@@ -637,10 +624,10 @@ def build_dashboard(season, fg_csv, min_pa, output, date_start, date_end,
             )
             dash.drop(columns=["name_norm"], inplace=True)
             matched = dash["EVA_Rank"].notna().sum()
-            print(f"  Matched {matched} players to EVAnalytics rankings.")
+            log(f"  Matched {matched} players to EVAnalytics rankings.")
         else:
-            print(f"  Could not auto-detect EVAnalytics columns: "
-                  f"{list(eva_df.columns)}")
+            log(f"  Could not auto-detect EVAnalytics columns: "
+                f"{list(eva_df.columns)}")
 
     # ------------------------------------------------------------------
     # Reorder columns for readability
@@ -676,19 +663,20 @@ def build_dashboard(season, fg_csv, min_pa, output, date_start, date_end,
     # ------------------------------------------------------------------
     # Output
     # ------------------------------------------------------------------
-    dash.to_csv(output, index=False)
-    print(f"\n{'=' * 64}")
-    print(f"  Dashboard saved to: {output}")
-    print(f"  Players: {len(dash)}")
-    print(f"  Columns: {', '.join(dash.columns)}")
-    print(f"{'=' * 64}")
+    if output:
+        dash.to_csv(output, index=False)
+        log(f"\n  Dashboard saved to: {output}")
+
+    log(f"\n{'=' * 64}")
+    log(f"  Players: {len(dash)}")
+    log(f"  Columns: {', '.join(dash.columns)}")
+    log(f"{'=' * 64}")
 
     preview_cols = [c for c in ["Name", "PA", "xBA", "Barrel%", "K%",
                                 "EV_115+", "AvgBatSpeed", "EVA_Rank"]
                     if c in dash.columns]
-    print(f"\nTop 15 by PA:\n")
-    print(dash[preview_cols].head(15).to_string(index=False))
-    print()
+    log(f"\nTop 15 by PA:\n")
+    log(dash[preview_cols].head(15).to_string(index=False))
 
     return dash
 
