@@ -2,3 +2,8 @@
 /TBOX-SMS-Segundo.xls
 /TBOX-SMS-Tercero.xls
 /tbox.code-workspace
+__pycache__/
+*.pyc
+hitter_dashboard.csv
+evanalytics_raw.csv
+fangraphs_auction_export.csv
