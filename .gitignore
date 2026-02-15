@@ -9,3 +9,4 @@ hitter_dashboard.csv
 evanalytics_raw.csv
 fangraphs_auction_export.csv
 .venv/
+.claude/
