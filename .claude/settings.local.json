@@ -1,6 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/**)",
+      "Bash(file:*)",
+      "Bash(ls:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "excalidraw"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

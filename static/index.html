@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hitter Dashboard</title>
+
+    <!-- AG Grid -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@33/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@33/styles/ag-theme-alpine.css">
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@33/dist/ag-grid-community.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Hitter Dashboard</h1>
+            <p>Interactive MLB hitter statistics with season-long and timeframe comparisons</p>
+        </header>
+
+        <!-- Configuration Panel -->
+        <section class="config-panel">
+            <h2>Configuration</h2>
+
+            <div class="form-grid">
+                <div data-field>
+                    <label for="season">Season</label>
+                    <input id="season" type="number" value="2025" min="2015" max="2030">
+                </div>
+
+                <div data-field>
+                    <label for="minPA">Minimum PA</label>
+                    <input id="minPA" type="number" value="50" min="1" max="600">
+                </div>
+            </div>
+
+            <h3>Date Range Stats Window</h3>
+            <div class="form-grid">
+                <div data-field>
+                    <label for="dateStart">Start Date</label>
+                    <input id="dateStart" type="date" value="2025-08-01">
+                </div>
+
+                <div data-field>
+                    <label for="dateEnd">End Date</label>
+                    <input id="dateEnd" type="date" value="2025-10-01">
+                </div>
+            </div>
+
+            <h3>Options</h3>
+            <div class="form-grid">
+                <label data-field>
+                    <input id="skipExitVelo" type="checkbox">
+                    Skip exit-velocity buckets (faster)
+                </label>
+
+                <label data-field>
+                    <input id="skipDateRange" type="checkbox">
+                    Skip date-range stats (faster)
+                </label>
+            </div>
+
+            <h3>FanGraphs Auction CSV</h3>
+            <label data-field>
+                Upload FanGraphs auction export (CSV)
+                <input id="fgCsv" type="file" accept=".csv">
+            </label>
+
+            <h3>Statcast Database</h3>
+            <div class="db-status-row">
+                <span id="dbStatus">Checking...</span>
+                <button id="buildDbBtn" class="btn btn-secondary">Build Statcast DB</button>
+            </div>
+            <p class="help-text">
+                Build a local pitch database for instant exit-velocity queries.
+                Only needed once per season (~30 min first time).
+            </p>
+
+            <button id="fetchBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                Fetch Dashboard
+            </button>
+        </section>
+
+        <!-- Progress Section -->
+        <section id="progressSection" class="progress-section" style="display: none;">
+            <h2>Fetching Data...</h2>
+            <div class="progress-container">
+                <progress id="progressBar" value="0" max="100"></progress>
+                <p id="progressStatus">Starting fetch...</p>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section" style="display: none;">
+            <div class="results-header">
+                <h2>Dashboard Results (<span id="playerCount">0</span> players)</h2>
+                <div class="download-buttons">
+                    <button id="downloadCsv" class="btn btn-secondary">Download CSV</button>
+                    <button id="downloadExcel" class="btn btn-secondary">Download Excel</button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-panel">
+                <h3>Filters &amp; Search</h3>
+
+                <div class="filter-grid">
+                    <!-- Multi-player select -->
+                    <div data-field class="player-filter-container">
+                        <label>Player Search</label>
+                        <div class="typeahead-wrapper">
+                            <input id="playerSearchInput" type="text" placeholder="Type player name..." autocomplete="off">
+                            <ul id="playerSuggestions" class="suggestions-dropdown"></ul>
+                        </div>
+                        <div id="selectedPlayers" class="selected-chips"></div>
+                    </div>
+
+                    <!-- Position filter -->
+                    <div data-field>
+                        <label for="positionFilter">Position</label>
+                        <select id="positionFilter">
+                            <option value="">All</option>
+                            <option value="C">C</option>
+                            <option value="1B">1B</option>
+                            <option value="2B">2B</option>
+                            <option value="SS">SS</option>
+                            <option value="3B">3B</option>
+                            <option value="LF">LF</option>
+                            <option value="CF">CF</option>
+                            <option value="RF">RF</option>
+                            <option value="OF">OF</option>
+                            <option value="DH">DH</option>
+                        </select>
+                        <label class="checkbox-label">
+                            <input id="posMainOnly" type="checkbox"> Main position only
+                        </label>
+                    </div>
+
+                    <!-- Column search -->
+                    <div data-field>
+                        <label for="columnFilter">Search All Columns</label>
+                        <input id="columnFilter" type="text" placeholder="Search any value...">
+                    </div>
+                </div>
+
+                <button id="resetFilters" class="btn btn-secondary">Reset Filters</button>
+            </div>
+
+            <!-- AG Grid Data Table -->
+            <div id="dataGrid" class="ag-theme-alpine" style="height: 600px; width: 100%;"></div>
+            <p id="tableInfo" class="table-info"></p>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection" class="error-section" style="display: none;">
+            <div class="error-box">
+                <h2>Error</h2>
+                <p id="errorMessage"></p>
+                <button id="retryBtn" class="btn btn-primary">Try Again</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api-client.js?v=5"></script>
+    <script src="/static/js/app.js?v=5"></script>
+</body>
+</html>
