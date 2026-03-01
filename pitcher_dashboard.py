@@ -157,11 +157,13 @@ def fetch_savant_pitcher_season_stats(season, min_bf=1, log=print):
     for col in ["BF", "IP", "ERA", "xERA", "K%", "BB%", "xwOBA",
                 "Whiff%", "Barrel%", "HH%", "GB%", "FB%"]:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = df[col].values.astype("float64")
 
     # Derive K-BB%
     if "K%" in df.columns and "BB%" in df.columns:
-        df["K-BB%"] = round(df["K%"] - df["BB%"], 1)
+        vals = (df["K%"].values - df["BB%"].values).astype("float64")
+        df["K-BB%"] = np.round(vals, 1)
 
     keep = ["MLBAMID", "Name", "IP", "BF", "ERA", "xERA",
             "K%", "BB%", "K-BB%", "xwOBA", "Whiff%",
@@ -249,7 +251,7 @@ def fetch_savant_stuff_plus(season, log=print):
         result = df.groupby("MLBAMID")[stuff_col].mean().reset_index()
         result.columns = ["MLBAMID", "Stuff+"]
 
-    result["Stuff+"] = result["Stuff+"].astype(float).round(1)
+    result["Stuff+"] = np.round(result["Stuff+"].values.astype("float64"), 1)
     log(f"    Stuff+: {len(result)} pitchers")
     return result
 
@@ -351,23 +353,34 @@ def _pitcher_split_from_db(season, start_date, end_date, prefix, log=print):
 
     log(f"    {prefix}: {len(raw)} pitchers from DB")
 
+    def _pct(num, denom, decimals=1):
+        """Safe percentage: returns float64 numpy array, NaN-safe."""
+        vals = (100.0 * num.values.astype("float64")
+                / np.where(denom.values == 0, np.nan, denom.values.astype("float64")))
+        return np.round(vals, decimals)
+
+    def _ratio(num, denom, decimals=3):
+        vals = (num.values.astype("float64")
+                / np.where(denom.values == 0, np.nan, denom.values.astype("float64")))
+        return np.round(vals, decimals)
+
     p = prefix  # e.g. "H1_"
     out = pd.DataFrame()
     out["MLBAMID"] = raw["MLBAMID"]
 
     out[f"{p}BF"]     = raw["total_bf"]
-    out[f"{p}K%"]     = (100.0 * raw["k_count"] / raw["total_bf"].replace(0, pd.NA)).round(1)
-    out[f"{p}BB%"]    = (100.0 * raw["bb_count"] / raw["total_bf"].replace(0, pd.NA)).round(1)
-    out[f"{p}K-BB%"]  = (out[f"{p}K%"] - out[f"{p}BB%"]).round(1)
-    out[f"{p}CSW%"]   = (100.0 * raw["csw_count"] / raw["total_pitches"].replace(0, pd.NA)).round(1)
-    out[f"{p}Whiff%"] = (100.0 * raw["whiff_count"] / raw["swing_count"].replace(0, pd.NA)).round(1)
-    out[f"{p}Zone%"]  = (100.0 * raw["zone_count"] / raw["total_pitches"].replace(0, pd.NA)).round(1)
-    out[f"{p}Chase%"] = (100.0 * raw["chase_count"] / raw["oz_count"].replace(0, pd.NA)).round(1)
-    out[f"{p}Barrel%"]= (100.0 * raw["barrel_count"] / raw["total_bbe"].replace(0, pd.NA)).round(1)
-    out[f"{p}HH%"]    = (100.0 * raw["hh_count"] / raw["total_bbe"].replace(0, pd.NA)).round(1)
-    out[f"{p}xwOBA"]  = (raw["sum_xwoba"] / raw["xwoba_count"].replace(0, pd.NA)).round(3)
-    out[f"{p}GB%"]    = (100.0 * raw["gb_count"] / raw["bbe_typed"].replace(0, pd.NA)).round(1)
-    out[f"{p}FB%"]    = (100.0 * raw["fb_count"] / raw["bbe_typed"].replace(0, pd.NA)).round(1)
+    out[f"{p}K%"]     = _pct(raw["k_count"], raw["total_bf"])
+    out[f"{p}BB%"]    = _pct(raw["bb_count"], raw["total_bf"])
+    out[f"{p}K-BB%"]  = np.round(out[f"{p}K%"].values - out[f"{p}BB%"].values, 1)
+    out[f"{p}CSW%"]   = _pct(raw["csw_count"], raw["total_pitches"])
+    out[f"{p}Whiff%"] = _pct(raw["whiff_count"], raw["swing_count"])
+    out[f"{p}Zone%"]  = _pct(raw["zone_count"], raw["total_pitches"])
+    out[f"{p}Chase%"] = _pct(raw["chase_count"], raw["oz_count"])
+    out[f"{p}Barrel%"]= _pct(raw["barrel_count"], raw["total_bbe"])
+    out[f"{p}HH%"]    = _pct(raw["hh_count"], raw["total_bbe"])
+    out[f"{p}xwOBA"]  = _ratio(raw["sum_xwoba"], raw["xwoba_count"])
+    out[f"{p}GB%"]    = _pct(raw["gb_count"], raw["bbe_typed"])
+    out[f"{p}FB%"]    = _pct(raw["fb_count"], raw["bbe_typed"])
 
     return out
 
