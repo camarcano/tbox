@@ -132,8 +132,9 @@ def fetch_savant_pitcher_season_stats(season, min_bf=1, log=print):
         df["Name"] = df.get("player_name", "Unknown")
 
     # MLBAMID
-    df["MLBAMID"] = pd.to_numeric(df.get("player_id", df.get("pitcher_id")), errors="coerce").astype("Int64")
+    df["MLBAMID"] = pd.to_numeric(df.get("player_id", df.get("pitcher_id")), errors="coerce")
     df = df.dropna(subset=["MLBAMID"])
+    df["MLBAMID"] = df["MLBAMID"].astype(int)
 
     # Rename columns
     col_map = {
@@ -152,15 +153,15 @@ def fetch_savant_pitcher_season_stats(season, min_bf=1, log=print):
     }
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
-    # Numeric coercion
+    # Numeric coercion — use plain float64 to avoid Int64/ufunc issues
     for col in ["BF", "IP", "ERA", "xERA", "K%", "BB%", "xwOBA",
                 "Whiff%", "Barrel%", "HH%", "GB%", "FB%"]:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
 
     # Derive K-BB%
     if "K%" in df.columns and "BB%" in df.columns:
-        df["K-BB%"] = (df["K%"] - df["BB%"]).round(1)
+        df["K-BB%"] = round(df["K%"] - df["BB%"], 1)
 
     keep = ["MLBAMID", "Name", "IP", "BF", "ERA", "xERA",
             "K%", "BB%", "K-BB%", "xwOBA", "Whiff%",
@@ -230,9 +231,10 @@ def fetch_savant_stuff_plus(season, log=print):
             count_col = candidate
             break
 
-    df["MLBAMID"] = pd.to_numeric(df[id_col], errors="coerce").astype("Int64")
+    df["MLBAMID"] = pd.to_numeric(df[id_col], errors="coerce")
     df[stuff_col] = pd.to_numeric(df[stuff_col], errors="coerce")
     df = df.dropna(subset=["MLBAMID", stuff_col])
+    df["MLBAMID"] = df["MLBAMID"].astype(int)
 
     if count_col and count_col in df.columns:
         df[count_col] = pd.to_numeric(df[count_col], errors="coerce").fillna(0).astype(float)
@@ -247,7 +249,7 @@ def fetch_savant_stuff_plus(season, log=print):
         result = df.groupby("MLBAMID")[stuff_col].mean().reset_index()
         result.columns = ["MLBAMID", "Stuff+"]
 
-    result["Stuff+"] = result["Stuff+"].round(1)
+    result["Stuff+"] = result["Stuff+"].astype(float).round(1)
     log(f"    Stuff+: {len(result)} pitchers")
     return result
 

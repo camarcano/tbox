@@ -14,6 +14,9 @@ GUMBO/MLB-StatsAPI - GUMBO - User Guide.pdf
 GUMBO/MLB-StatsAPI - Lookup Values.pdf
 GUMBO/MLB-StatsAPI-Getting Started.pdf
 GUMBO/MLB-StatsAPI-Hydrations.pdf
-data/statcast_2025.db
+data/*.db
+*.log
+*.pdf
+venv/
 GUMBO/MLB-StatsAPI-Spec.json
 GUMBO/MLB-StatsAPI-Spec.pdf
