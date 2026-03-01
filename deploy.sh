@@ -2,10 +2,10 @@
 # deploy.sh — Push local changes to the VPS and reload Apache.
 #
 # Usage:
-#   ./deploy.sh           — deploy app files only (fast)
+#   ./deploy.sh           — deploy app files only
 #   ./deploy.sh --db      — also upload the statcast DB (~515 MB, slow)
 #
-# Requirements: ssh key auth set up, or enter password when prompted.
+# Requires: scp + ssh (available in Git Bash by default)
 
 set -e
 
@@ -17,31 +17,25 @@ for arg in "$@"; do
     [[ "$arg" == "--db" ]] && DEPLOY_DB=true
 done
 
-echo "==> Syncing app files..."
-rsync -avz --progress \
-    --exclude='.git' \
-    --exclude='.venv' \
-    --exclude='.claude' \
-    --exclude='__pycache__' \
-    --exclude='data/' \
-    --exclude='*.db' \
-    --exclude='*.log' \
-    --exclude='*.pdf' \
-    --exclude='GUMBO/' \
-    --exclude='hitter_dashboard.csv' \
-    --exclude='savant_data.csv' \
-    --exclude='codes*.csv' \
-    --exclude='deploy.sh' \
-    --exclude='hitters.conf' \
-    --exclude='hitters.wsgi' \
-    --exclude='dashboard_app.py' \
-    --exclude='tbox.py' \
-    --exclude='test_api.py' \
-    . "$SERVER:$REMOTE/"
+echo "==> Uploading Python files..."
+scp app.py hitter_dashboard.py pitcher_dashboard.py build_statcast_db.py player_mapper.py \
+    "$SERVER:$REMOTE/"
+
+echo "==> Uploading data files..."
+scp requirements_new.txt "SFBB Player ID Map - PLAYERIDMAP.csv" \
+    "$SERVER:$REMOTE/"
+
+echo "==> Uploading static files..."
+scp static/index.html static/pitcher.html \
+    "$SERVER:$REMOTE/static/"
+scp static/css/custom.css \
+    "$SERVER:$REMOTE/static/css/"
+scp static/js/app.js static/js/pitcher-app.js static/js/api-client.js \
+    "$SERVER:$REMOTE/static/js/"
 
 if [ "$DEPLOY_DB" = true ]; then
     echo "==> Uploading Statcast DB (~515 MB, this will take a while)..."
-    rsync -avz --progress data/statcast_2025.db "$SERVER:$REMOTE/data/"
+    scp data/statcast_2025.db "$SERVER:$REMOTE/data/"
 fi
 
 echo "==> Reloading Apache..."
