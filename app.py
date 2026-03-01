@@ -26,6 +26,7 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 from hitter_dashboard import build_dashboard
+from pitcher_dashboard import build_pitcher_dashboard
 from build_statcast_db import build_db, get_db_path
 from player_mapper import PlayerMapper
 
@@ -43,7 +44,8 @@ sessions = {}
 active_jobs = {}
 
 # Player mapper for fuzzy search
-player_mapper = PlayerMapper("SFBB Player ID Map - PLAYERIDMAP.csv")
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+player_mapper = PlayerMapper(os.path.join(_BASE_DIR, "SFBB Player ID Map - PLAYERIDMAP.csv"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Utilities
@@ -101,8 +103,18 @@ def save_fg_csv(uploaded_file):
 
 @app.route("/")
 def index():
-    """Serve main dashboard page."""
-    with open("static/index.html", "r", encoding="utf-8") as f:
+    """Serve hitter dashboard page."""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    return Response(html, mimetype="text/html; charset=utf-8")
+
+
+@app.route("/pitchers")
+def pitchers():
+    """Serve pitcher dashboard page."""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "pitcher.html")
+    with open(html_path, "r", encoding="utf-8") as f:
         html = f.read()
     return Response(html, mimetype="text/html; charset=utf-8")
 
@@ -384,6 +396,64 @@ def statcast_status():
         "db_path": db_path,
         **info,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pitcher Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@app.route("/api/pitcher/fetch", methods=["POST"])
+def fetch_pitcher_dashboard():
+    """Start a pitcher dashboard fetch job (runs in background thread)."""
+    data = request.get_json() or {}
+
+    season   = int(data.get("season", 2025))
+    min_bf   = int(data.get("min_bf", 100))
+    min_ip   = float(data.get("min_ip", 20))
+    h1_start = data.get("h1_start", "2025-04-01")
+    h1_end   = data.get("h1_end",   "2025-07-31")
+    h2_start = data.get("h2_start", "2025-08-01")
+    h2_end   = data.get("h2_end",   "2025-10-01")
+
+    job_id = create_session_id()
+    progress = ProgressLog()
+    active_jobs[job_id] = progress
+
+    def run_fetch():
+        try:
+            df = build_pitcher_dashboard(
+                season=season,
+                min_bf=min_bf,
+                min_ip=min_ip,
+                h1_start=h1_start,
+                h1_end=h1_end,
+                h2_start=h2_start,
+                h2_end=h2_end,
+                log=progress,
+            )
+            sessions[job_id] = {
+                "df": df,
+                "created": datetime.now(),
+                "config": {
+                    "season": season,
+                    "min_bf": min_bf,
+                    "min_ip": min_ip,
+                    "h1_start": h1_start,
+                    "h1_end": h1_end,
+                    "h2_start": h2_start,
+                    "h2_end": h2_end,
+                },
+            }
+            progress.finish()
+        except Exception as e:
+            traceback.print_exc()
+            progress.finish(error=str(e))
+
+    thread = threading.Thread(target=run_fetch, daemon=True)
+    thread.start()
+
+    return jsonify({"job_id": job_id, "status": "started"})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

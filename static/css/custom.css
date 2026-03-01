@@ -19,6 +19,48 @@ html, body {
     padding: 2rem 1rem;
 }
 
+/* Nav */
+.dash-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.nav-link {
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+    transition: all 0.2s;
+}
+
+.nav-link:hover {
+    background: #667eea;
+    color: white;
+}
+
+.nav-link.active {
+    background: #667eea;
+    color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+    .nav-link {
+        background: #2a2a2a;
+        color: #a0b4f5;
+        border-color: #667eea;
+    }
+    .nav-link:hover,
+    .nav-link.active {
+        background: #667eea;
+        color: white;
+    }
+}
+
 /* Header */
 header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

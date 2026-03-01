@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hitter Dashboard</title>
+    <title>Pitcher Dashboard</title>
 
     <!-- AG Grid -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@33/styles/ag-grid.css">
@@ -17,14 +17,14 @@
     <div class="container">
         <!-- Nav -->
         <nav class="dash-nav">
-            <a href="/" class="nav-link active">Hitters</a>
-            <a href="/pitchers" class="nav-link">Pitchers</a>
+            <a href="/" class="nav-link">Hitters</a>
+            <a href="/pitchers" class="nav-link active">Pitchers</a>
         </nav>
 
         <!-- Header -->
         <header>
-            <h1>Hitter Dashboard</h1>
-            <p>Interactive MLB hitter statistics with season-long and timeframe comparisons</p>
+            <h1>Pitcher Dashboard</h1>
+            <p>MLB pitcher statistics with season totals and first/second half breakdowns</p>
         </header>
 
         <!-- Configuration Panel -->
@@ -36,44 +36,39 @@
                     <label for="season">Season</label>
                     <input id="season" type="number" value="2025" min="2015" max="2030">
                 </div>
-
                 <div data-field>
-                    <label for="minPA">Minimum PA</label>
-                    <input id="minPA" type="number" value="50" min="1" max="600">
+                    <label for="minBF">Minimum BF</label>
+                    <input id="minBF" type="number" value="100" min="1" max="1000">
+                </div>
+                <div data-field>
+                    <label for="minIP">Minimum IP</label>
+                    <input id="minIP" type="number" value="20" min="0" max="300" step="1">
                 </div>
             </div>
 
-            <h3>Date Range Stats Window</h3>
+            <h3>First Half Window</h3>
             <div class="form-grid">
                 <div data-field>
-                    <label for="dateStart">Start Date</label>
-                    <input id="dateStart" type="date" value="2025-08-01">
+                    <label for="h1Start">H1 Start Date</label>
+                    <input id="h1Start" type="date" value="2025-04-01">
                 </div>
-
                 <div data-field>
-                    <label for="dateEnd">End Date</label>
-                    <input id="dateEnd" type="date" value="2025-10-01">
+                    <label for="h1End">H1 End Date</label>
+                    <input id="h1End" type="date" value="2025-07-31">
                 </div>
             </div>
 
-            <h3>Options</h3>
+            <h3>Second Half Window</h3>
             <div class="form-grid">
-                <label data-field>
-                    <input id="skipExitVelo" type="checkbox">
-                    Skip exit-velocity buckets (faster)
-                </label>
-
-                <label data-field>
-                    <input id="skipDateRange" type="checkbox">
-                    Skip date-range stats (faster)
-                </label>
+                <div data-field>
+                    <label for="h2Start">H2 Start Date</label>
+                    <input id="h2Start" type="date" value="2025-08-01">
+                </div>
+                <div data-field>
+                    <label for="h2End">H2 End Date</label>
+                    <input id="h2End" type="date" value="2025-10-01">
+                </div>
             </div>
-
-            <h3>FanGraphs Auction CSV</h3>
-            <label data-field>
-                Upload FanGraphs auction export (CSV)
-                <input id="fgCsv" type="file" accept=".csv">
-            </label>
 
             <h3>Statcast Database</h3>
             <div class="db-status-row">
@@ -81,12 +76,11 @@
                 <button id="buildDbBtn" class="btn btn-secondary">Build Statcast DB</button>
             </div>
             <p class="help-text">
-                Build a local pitch database for instant exit-velocity queries.
-                Only needed once per season (~30 min first time).
+                Required for H1/H2 split stats (CSW%, Whiff%, Zone%, Chase%, etc.).
             </p>
 
             <button id="fetchBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-                Fetch Dashboard
+                Fetch Pitcher Dashboard
             </button>
         </section>
 
@@ -102,7 +96,7 @@
         <!-- Results Section -->
         <section id="resultsSection" class="results-section" style="display: none;">
             <div class="results-header">
-                <h2>Dashboard Results (<span id="playerCount">0</span> players)</h2>
+                <h2>Pitcher Results (<span id="playerCount">0</span> pitchers)</h2>
                 <div class="download-buttons">
                     <button id="downloadCsv" class="btn btn-secondary">Download CSV</button>
                     <button id="downloadExcel" class="btn btn-secondary">Download Excel</button>
@@ -111,48 +105,14 @@
 
             <!-- Filters -->
             <div class="filters-panel">
-                <h3>Filters &amp; Search</h3>
-
+                <h3>Search</h3>
                 <div class="filter-grid">
-                    <!-- Multi-player select -->
-                    <div data-field class="player-filter-container">
-                        <label>Player Search</label>
-                        <div class="typeahead-wrapper">
-                            <input id="playerSearchInput" type="text" placeholder="Type player name..." autocomplete="off">
-                            <ul id="playerSuggestions" class="suggestions-dropdown"></ul>
-                        </div>
-                        <div id="selectedPlayers" class="selected-chips"></div>
-                    </div>
-
-                    <!-- Position filter -->
-                    <div data-field>
-                        <label for="positionFilter">Position</label>
-                        <select id="positionFilter">
-                            <option value="">All</option>
-                            <option value="C">C</option>
-                            <option value="1B">1B</option>
-                            <option value="2B">2B</option>
-                            <option value="SS">SS</option>
-                            <option value="3B">3B</option>
-                            <option value="LF">LF</option>
-                            <option value="CF">CF</option>
-                            <option value="RF">RF</option>
-                            <option value="OF">OF</option>
-                            <option value="DH">DH</option>
-                        </select>
-                        <label class="checkbox-label">
-                            <input id="posMainOnly" type="checkbox"> Main position only
-                        </label>
-                    </div>
-
-                    <!-- Column search -->
                     <div data-field>
                         <label for="columnFilter">Search All Columns</label>
                         <input id="columnFilter" type="text" placeholder="Search any value...">
                     </div>
                 </div>
-
-                <button id="resetFilters" class="btn btn-secondary">Reset Filters</button>
+                <button id="resetFilters" class="btn btn-secondary">Reset</button>
             </div>
 
             <!-- AG Grid Data Table -->
@@ -172,6 +132,6 @@
 
     <!-- Scripts -->
     <script src="/static/js/api-client.js?v=6"></script>
-    <script src="/static/js/app.js?v=6"></script>
+    <script src="/static/js/pitcher-app.js?v=6"></script>
 </body>
 </html>

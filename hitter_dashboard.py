@@ -46,7 +46,8 @@ DEFAULT_DATE_RANGE_END = "2025-10-01"
 DEFAULT_MIN_PA = 50
 DEFAULT_OUTPUT = "hitter_dashboard.csv"
 
-SFBB_MAP_PATH = "SFBB Player ID Map - PLAYERIDMAP.csv"
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SFBB_MAP_PATH = os.path.join(_BASE_DIR, "SFBB Player ID Map - PLAYERIDMAP.csv")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -100,7 +101,7 @@ def normalize_name(name: str) -> str:
 
 def _get_db_path(season):
     """Return path to the statcast SQLite DB for a season."""
-    return os.path.join("data", f"statcast_{season}.db")
+    return os.path.join(_BASE_DIR, "data", f"statcast_{season}.db")
 
 
 def _db_exists(season):

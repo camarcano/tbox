@@ -29,7 +29,7 @@ from hitter_dashboard import _statcast_search_csv
 # Constants
 # -------------------------------------------------------------------
 
-DEFAULT_DB_DIR = "data"
+DEFAULT_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SEASON_START_MONTH_DAY = (3, 20)  # Spring training / early season
 SEASON_END_MONTH_DAY = (11, 5)    # Post-season buffer
 
