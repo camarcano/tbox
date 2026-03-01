@@ -235,16 +235,15 @@ def fetch_savant_stuff_plus(season, log=print):
     df = df.dropna(subset=["MLBAMID", stuff_col])
 
     if count_col and count_col in df.columns:
-        df[count_col] = pd.to_numeric(df[count_col], errors="coerce").fillna(0)
-        # Weighted average Stuff+ per pitcher
-        result = (
-            df.groupby("MLBAMID")
-            .apply(lambda g: np.average(g[stuff_col], weights=g[count_col])
-                   if g[count_col].sum() > 0 else g[stuff_col].mean())
-            .reset_index()
-        )
+        df[count_col] = pd.to_numeric(df[count_col], errors="coerce").fillna(0).astype(float)
+        df[stuff_col] = df[stuff_col].astype(float)
+        # Weighted average Stuff+ per pitcher using pure pandas
+        df["_weighted"] = df[stuff_col] * df[count_col]
+        grp = df.groupby("MLBAMID")
+        result = (grp["_weighted"].sum() / grp[count_col].sum()).reset_index()
         result.columns = ["MLBAMID", "Stuff+"]
     else:
+        df[stuff_col] = df[stuff_col].astype(float)
         result = df.groupby("MLBAMID")[stuff_col].mean().reset_index()
         result.columns = ["MLBAMID", "Stuff+"]
 
