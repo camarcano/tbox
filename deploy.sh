@@ -17,9 +17,6 @@ for arg in "$@"; do
     [[ "$arg" == "--db" ]] && DEPLOY_DB=true
 done
 
-echo "==> Granting write access..."
-ssh "$SERVER" "sudo chown -R carlos:carlos $REMOTE"
-
 echo "==> Syncing app files..."
 rsync -avz --progress \
     --exclude='.git' \
@@ -47,7 +44,7 @@ if [ "$DEPLOY_DB" = true ]; then
     rsync -avz --progress data/statcast_2025.db "$SERVER:$REMOTE/data/"
 fi
 
-echo "==> Restoring permissions and reloading Apache..."
-ssh "$SERVER" "sudo chown -R www-data:www-data $REMOTE && sudo systemctl reload apache2"
+echo "==> Reloading Apache..."
+ssh "$SERVER" "sudo systemctl reload apache2"
 
 echo "==> Done! https://hitters.datanalytics.pro"
