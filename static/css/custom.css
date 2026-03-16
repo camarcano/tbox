@@ -641,21 +641,19 @@ progress {
 /* Charts row */
 .scout-charts-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
-.zone-chart-box,
-.spray-chart-box {
+.zone-chart-box {
     background: #fafafa;
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
 }
 
-.zone-chart-box h3,
-.spray-chart-box h3 {
+.zone-chart-box h3 {
     margin: 0 0 0.75rem;
     font-size: 0.95rem;
     color: #444;
@@ -738,10 +736,12 @@ progress {
     padding: 2rem 0;
 }
 
-/* Spray chart canvas */
-.spray-chart-box canvas {
-    max-width: 100%;
-    height: auto;
+/* PDF export section */
+.pdf-export-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #667eea;
+    text-align: center;
 }
 
 /* Scouting tables */
@@ -822,15 +822,6 @@ progress {
 .ba-cold { background: #d0e8ff !important; }
 
 /* Responsive scouting */
-@media (max-width: 1024px) {
-    .scout-charts-row {
-        grid-template-columns: 1fr 1fr;
-    }
-    .spray-chart-box {
-        grid-column: 1 / -1;
-    }
-}
-
 @media (max-width: 768px) {
     .scout-charts-row {
         grid-template-columns: 1fr;
@@ -842,12 +833,10 @@ progress {
 
 /* Dark mode scouting */
 @media (prefers-color-scheme: dark) {
-    .zone-chart-box,
-    .spray-chart-box {
+    .zone-chart-box {
         background: #333;
     }
-    .zone-chart-box h3,
-    .spray-chart-box h3 {
+    .zone-chart-box h3 {
         color: #ccc;
     }
     .zone-cell { border-color: #555; }
@@ -868,10 +857,7 @@ progress {
 
 /* Print scouting */
 @media print {
-    .scout-charts-row {
-        grid-template-columns: 1fr 1fr 1fr;
-    }
-    .config-panel, .dash-nav, #loadingSection {
+    .config-panel, .dash-nav, #loadingSection, .pdf-export-section {
         display: none !important;
     }
 }

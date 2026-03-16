@@ -9,7 +9,6 @@ Includes zone charts, spray charts, pitch type performance, and by-count breakdo
 import os
 import sqlite3
 
-import numpy as np
 import pandas as pd
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -186,7 +185,6 @@ def generate_scouting_report(season, batter_id, p_throws='ALL',
         'summary': _compute_summary(df),
         'zone_fb': _compute_zone_chart(df[df['is_fastball']]),
         'zone_other': _compute_zone_chart(df[~df['is_fastball']]),
-        'spray': _compute_spray_chart(df, bats),
         'pitch_type_table': _compute_pitch_type_table(df),
         'by_count': _compute_by_count(df),
     }
@@ -274,52 +272,6 @@ def _compute_zone_chart(df):
         'col_pcts': col_pcts,
         'total_pitches': total_pitches,
     }
-
-
-# ---------------------------------------------------------------------------
-# Spray chart
-# ---------------------------------------------------------------------------
-
-def _compute_spray_chart(df, bats):
-    # Only batted ball events with valid hit coordinates
-    batted = df[
-        (df['type'] == 'X') &
-        (df['hc_x'].notna()) & (df['hc_y'].notna()) &
-        (df['hc_x'] != 0) & (df['hc_y'] != 0)
-    ].copy()
-    if batted.empty:
-        return {'sections': {}, 'total': 0, 'bats': bats}
-
-    HP_X, HP_Y = 125.42, 198.27
-    dx = batted['hc_x'].values - HP_X
-    dy = HP_Y - batted['hc_y'].values
-    batted['angle'] = np.degrees(np.arctan2(dx, dy))
-    batted['distance'] = np.sqrt(dx ** 2 + dy ** 2)
-
-    INFIELD_THRESHOLD = 110
-
-    # Vectorized classification
-    angles = batted['angle'].values
-    if bats == 'R':
-        batted['direction'] = np.where(
-            angles > 15, 'pull', np.where(angles < -15, 'oppo', 'center'))
-    else:
-        batted['direction'] = np.where(
-            angles < -15, 'pull', np.where(angles > 15, 'oppo', 'center'))
-    batted['depth'] = np.where(
-        batted['distance'].values < INFIELD_THRESHOLD, 'infield', 'outfield')
-
-    total = len(batted)
-    sections = {}
-    for direction in ['pull', 'center', 'oppo']:
-        for depth in ['infield', 'outfield']:
-            count = int(((batted['direction'] == direction) & (batted['depth'] == depth)).sum())
-            sections[f"{direction}_{depth}"] = {
-                'count': count,
-                'pct': _pct(count, total),
-            }
-
-    return {'sections': sections, 'total': total, 'bats': bats}
 
 
 # ---------------------------------------------------------------------------

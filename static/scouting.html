@@ -78,7 +78,7 @@
             <!-- Report Header -->
             <div id="reportHeader" class="scout-header"></div>
 
-            <!-- Zone Charts + Spray -->
+            <!-- Zone Charts -->
             <div class="scout-charts-row">
                 <div class="zone-chart-box">
                     <h3>vs. Fastballs</h3>
@@ -87,10 +87,6 @@
                 <div class="zone-chart-box">
                     <h3>vs. Other Pitches</h3>
                     <div id="zoneOther" class="zone-grid-wrapper"></div>
-                </div>
-                <div class="spray-chart-box">
-                    <h3>Spray Zones</h3>
-                    <canvas id="sprayCanvas" width="260" height="260"></canvas>
                 </div>
             </div>
 
@@ -108,6 +104,14 @@
                 <div class="table-scroll">
                     <table id="byCountTable" class="scout-table"></table>
                 </div>
+            </div>
+
+            <!-- PDF Export -->
+            <div class="pdf-export-section">
+                <button id="exportPdfBtn" class="btn btn-primary">
+                    Export Full Report (PDF) — VS ALL / VS RHP / VS LHP
+                </button>
+                <p class="help-text">Generates a 2-page PDF with all three splits.</p>
             </div>
         </section>
 
