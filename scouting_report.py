@@ -126,12 +126,14 @@ def generate_scouting_report(season, batter_id, p_throws='ALL',
 
     query = """
         SELECT
-            pitch_type, zone, balls, strikes,
+            pitch_type, zone,
+            CAST(NULLIF(balls, '') AS INTEGER) AS balls,
+            CAST(NULLIF(strikes, '') AS INTEGER) AS strikes,
             p_throws, stand, type, description, events,
-            CAST(launch_speed AS REAL) AS launch_speed,
-            CAST(launch_angle AS REAL) AS launch_angle,
-            CAST(hc_x AS REAL) AS hc_x,
-            CAST(hc_y AS REAL) AS hc_y,
+            CAST(NULLIF(launch_speed, '') AS REAL) AS launch_speed,
+            CAST(NULLIF(launch_angle, '') AS REAL) AS launch_angle,
+            CAST(NULLIF(hc_x, '') AS REAL) AS hc_x,
+            CAST(NULLIF(hc_y, '') AS REAL) AS hc_y,
             bb_type,
             CASE WHEN (on_2b IS NOT NULL AND on_2b != '')
                    OR (on_3b IS NOT NULL AND on_3b != '')
@@ -152,6 +154,10 @@ def generate_scouting_report(season, batter_id, p_throws='ALL',
         raise ValueError(f"No pitches found for batter {batter_id} in {season}")
 
     player_name = name_df.iloc[0]['player_name'] if not name_df.empty else str(batter_id)
+
+    # Ensure balls/strikes are integers (SQLite may store as text)
+    df['balls'] = pd.to_numeric(df['balls'], errors='coerce').fillna(0).astype(int)
+    df['strikes'] = pd.to_numeric(df['strikes'], errors='coerce').fillna(0).astype(int)
 
     # Filter by pitcher hand
     if p_throws and p_throws != 'ALL':
@@ -204,7 +210,7 @@ def _compute_summary(df):
     batted = df[df['bb_type'].notna() & (df['bb_type'] != '')]
     total_batted = len(batted)
     gb = int((batted['bb_type'] == 'ground_ball').sum())
-    fb = int((batted['bb_type'] == 'fly_ball').sum())
+    fb = int(((batted['bb_type'] == 'fly_ball') | (batted['bb_type'] == 'popup')).sum())
     ld = int((batted['bb_type'] == 'line_drive').sum())
 
     tb = _total_bases_from_events(ab_df['events'].dropna())
@@ -275,29 +281,33 @@ def _compute_zone_chart(df):
 # ---------------------------------------------------------------------------
 
 def _compute_spray_chart(df, bats):
-    batted = df[(df['hc_x'].notna()) & (df['hc_y'].notna())].copy()
+    # Only batted ball events with valid hit coordinates
+    batted = df[
+        (df['type'] == 'X') &
+        (df['hc_x'].notna()) & (df['hc_y'].notna()) &
+        (df['hc_x'] != 0) & (df['hc_y'] != 0)
+    ].copy()
     if batted.empty:
         return {'sections': {}, 'total': 0, 'bats': bats}
 
     HP_X, HP_Y = 125.42, 198.27
-    batted['dx'] = batted['hc_x'] - HP_X
-    batted['dy'] = HP_Y - batted['hc_y']
-    batted['angle'] = np.degrees(np.arctan2(batted['dx'], batted['dy']))
-    batted['distance'] = np.sqrt(batted['dx'] ** 2 + batted['dy'] ** 2)
+    dx = batted['hc_x'].values - HP_X
+    dy = HP_Y - batted['hc_y'].values
+    batted['angle'] = np.degrees(np.arctan2(dx, dy))
+    batted['distance'] = np.sqrt(dx ** 2 + dy ** 2)
 
     INFIELD_THRESHOLD = 110
 
-    def classify(row):
-        a = row['angle']
-        if bats == 'R':
-            direction = 'pull' if a > 15 else ('oppo' if a < -15 else 'center')
-        else:
-            direction = 'pull' if a < -15 else ('oppo' if a > 15 else 'center')
-        depth = 'infield' if row['distance'] < INFIELD_THRESHOLD else 'outfield'
-        return pd.Series({'direction': direction, 'depth': depth})
-
-    classified = batted.apply(classify, axis=1)
-    batted = pd.concat([batted, classified], axis=1)
+    # Vectorized classification
+    angles = batted['angle'].values
+    if bats == 'R':
+        batted['direction'] = np.where(
+            angles > 15, 'pull', np.where(angles < -15, 'oppo', 'center'))
+    else:
+        batted['direction'] = np.where(
+            angles < -15, 'pull', np.where(angles > 15, 'oppo', 'center'))
+    batted['depth'] = np.where(
+        batted['distance'].values < INFIELD_THRESHOLD, 'infield', 'outfield')
 
     total = len(batted)
     sections = {}
