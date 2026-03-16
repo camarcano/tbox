@@ -176,9 +176,10 @@ def fetch_savant_bat_speed(season, log=print):
     df = pd.read_csv(StringIO(resp.text))
     out = df[["id", "name", "avg_bat_speed"]].copy()
     out.columns = ["MLBAMID", "Name", "AvgBatSpeed"]
-    out["AvgBatSpeed"] = pd.to_numeric(
-        out["AvgBatSpeed"], errors="coerce"
-    ).round(1)
+    out["AvgBatSpeed"] = np.round(
+        pd.to_numeric(out["AvgBatSpeed"], errors="coerce")
+        .values.astype("float64"), 1
+    )
     log(f"    {len(out)} players with bat speed data.")
     return out
 
