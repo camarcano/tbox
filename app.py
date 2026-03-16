@@ -28,7 +28,10 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from hitter_dashboard import build_dashboard
 from pitcher_dashboard import build_pitcher_dashboard
 from scouting_report import generate_scouting_report, search_players_in_db
-from scouting_pdf import generate_scouting_pdf
+try:
+    from scouting_pdf import generate_scouting_pdf
+except ImportError:
+    generate_scouting_pdf = None
 from build_statcast_db import build_db, get_db_path
 from player_mapper import PlayerMapper
 
@@ -514,6 +517,9 @@ def scouting_pdf():
 
     if not batter_id:
         return jsonify({"error": "batter_id is required"}), 400
+
+    if generate_scouting_pdf is None:
+        return jsonify({"error": "PDF export requires fpdf2: pip install fpdf2"}), 500
 
     try:
         pdf_buf = generate_scouting_pdf(
