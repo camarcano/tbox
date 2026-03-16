@@ -27,6 +27,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 from hitter_dashboard import build_dashboard
 from pitcher_dashboard import build_pitcher_dashboard
+from scouting_report import generate_scouting_report, search_players_in_db
 from build_statcast_db import build_db, get_db_path
 from player_mapper import PlayerMapper
 
@@ -454,6 +455,62 @@ def fetch_pitcher_dashboard():
     thread.start()
 
     return jsonify({"job_id": job_id, "status": "started"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Scouting Reports
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@app.route("/scouting")
+def scouting():
+    """Serve scouting report page."""
+    html_path = os.path.join(
+        os.path.dirname(__file__), "static", "scouting.html"
+    )
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    return Response(html, mimetype="text/html; charset=utf-8")
+
+
+@app.route("/api/scouting/report", methods=["POST"])
+def scouting_report():
+    """Generate a scouting report for a batter."""
+    data = request.get_json() or {}
+    season = int(data.get("season", 2025))
+    batter_id = int(data.get("batter_id", 0))
+    p_throws = data.get("p_throws", "ALL")
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
+
+    if not batter_id:
+        return jsonify({"error": "batter_id is required"}), 400
+
+    try:
+        report = generate_scouting_report(
+            season=season,
+            batter_id=batter_id,
+            p_throws=p_throws,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return jsonify(report)
+    except (FileNotFoundError, ValueError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/scouting/search")
+def scouting_search():
+    """Search for batters in the Statcast DB."""
+    q = request.args.get("q", "")
+    season = request.args.get("season", 2025, type=int)
+    if not q or len(q) < 2:
+        return jsonify({"results": []})
+    results = search_players_in_db(season, q, limit=20)
+    return jsonify({"results": results})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

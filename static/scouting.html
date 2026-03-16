@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scouting Report</title>
+    <link rel="stylesheet" href="/static/css/custom.css?v=7">
+</head>
+<body>
+    <div class="container">
+        <!-- Nav -->
+        <nav class="dash-nav">
+            <a href="/" class="nav-link">Hitters</a>
+            <a href="/pitchers" class="nav-link">Pitchers</a>
+            <a href="/scouting" class="nav-link active">Scouting</a>
+        </nav>
+
+        <!-- Header -->
+        <header>
+            <h1>Player Scouting Report</h1>
+            <p>Inside Edge-style analysis from Statcast pitch data</p>
+        </header>
+
+        <!-- Config Panel -->
+        <section class="config-panel">
+            <h2>Configuration</h2>
+            <div class="form-grid">
+                <div data-field class="player-search-field">
+                    <label for="playerSearch">Player Name</label>
+                    <input id="playerSearch" type="text" placeholder="Search player name..." autocomplete="off">
+                    <ul id="searchResults" class="suggestions-dropdown"></ul>
+                    <input id="selectedPlayerId" type="hidden">
+                    <span id="selectedPlayerName" class="selected-player-label"></span>
+                </div>
+                <div data-field>
+                    <label for="season">Season</label>
+                    <input id="season" type="number" value="2025" min="2015" max="2030">
+                </div>
+                <div data-field>
+                    <label for="vsHand">vs Pitcher Hand</label>
+                    <select id="vsHand">
+                        <option value="ALL">All Pitchers</option>
+                        <option value="R">vs RHP</option>
+                        <option value="L">vs LHP</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div data-field>
+                    <label for="startDate">Start Date</label>
+                    <input id="startDate" type="date" value="2025-03-20">
+                </div>
+                <div data-field>
+                    <label for="endDate">End Date</label>
+                    <input id="endDate" type="date" value="2025-10-01">
+                </div>
+            </div>
+
+            <h3>Statcast Database</h3>
+            <div class="db-status-row">
+                <span id="dbStatus">Checking...</span>
+            </div>
+            <p class="help-text">Requires a built Statcast DB for the selected season.</p>
+
+            <button id="generateBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                Generate Scouting Report
+            </button>
+        </section>
+
+        <!-- Loading -->
+        <section id="loadingSection" style="display: none;">
+            <h2 style="text-align:center;">Generating Report...</h2>
+            <p style="text-align:center; color:#667eea;">Querying Statcast database...</p>
+        </section>
+
+        <!-- Report Section -->
+        <section id="reportSection" class="report-section" style="display: none;">
+            <!-- Report Header -->
+            <div id="reportHeader" class="scout-header"></div>
+
+            <!-- Zone Charts + Spray -->
+            <div class="scout-charts-row">
+                <div class="zone-chart-box">
+                    <h3>vs. Fastballs</h3>
+                    <div id="zoneFB" class="zone-grid-wrapper"></div>
+                </div>
+                <div class="zone-chart-box">
+                    <h3>vs. Other Pitches</h3>
+                    <div id="zoneOther" class="zone-grid-wrapper"></div>
+                </div>
+                <div class="spray-chart-box">
+                    <h3>Spray Zones</h3>
+                    <canvas id="sprayCanvas" width="260" height="260"></canvas>
+                </div>
+            </div>
+
+            <!-- Pitch Type Table -->
+            <div class="scout-table-section">
+                <h3>Pitch Type Performance & Tendencies</h3>
+                <div class="table-scroll">
+                    <table id="pitchTypeTable" class="scout-table"></table>
+                </div>
+            </div>
+
+            <!-- By Count Table -->
+            <div class="scout-table-section">
+                <h3>By Count</h3>
+                <div class="table-scroll">
+                    <table id="byCountTable" class="scout-table"></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection" class="error-section" style="display: none;">
+            <div class="error-box">
+                <h2>Error</h2>
+                <p id="errorMessage"></p>
+                <button id="retryBtn" class="btn btn-primary">Try Again</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/js/scouting-app.js?v=7"></script>
+</body>
+</html>
